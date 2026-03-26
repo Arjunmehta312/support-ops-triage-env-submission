@@ -106,6 +106,11 @@ Final grader score is deterministic in [0.0, 1.0], combining:
 - triage quality score (field-level correctness per ticket)
 - efficiency score (action budget usage)
 
+Determinism and implementation policy:
+- Grading is fully programmatic and rule-based.
+- No LLM calls are used in the grader scoring path.
+- For identical episode state and action history, grader output is identical.
+
 Difficulty thresholds:
 - easy: >= 0.82
 - medium: >= 0.78
@@ -235,6 +240,22 @@ The validator checks:
 - reset/step/state availability
 - baseline endpoint returns scores in [0.0, 1.0]
 - grader endpoint responds correctly
+
+## Submission Evidence Checklist
+
+Recommended final checks before portal submission:
+- openenv validate passes in the environment root
+- local server runs and pre-submission validator passes
+- deployed Space health and endpoint checks pass
+- determinism check script confirms reproducible grader and baseline outputs
+
+Commands:
+
+```bash
+python scripts/pre_submission_validate.py
+python scripts/ci_determinism_check.py
+python scripts/check_space_status.py
+```
 
 ## Project Structure
 
