@@ -11,6 +11,7 @@ from __future__ import annotations
 from typing import Any, Dict
 
 from fastapi import Body
+from fastapi.responses import HTMLResponse, Response
 
 try:
     from openenv.core.env_server.http_server import create_app
@@ -63,6 +64,130 @@ app = create_app(
     env_name="support_ops_triage_env",
     max_concurrent_envs=1,
 )
+
+
+_LANDING_HTML = """<!doctype html>
+<html lang=\"en\">
+    <head>
+        <meta charset=\"utf-8\" />
+        <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />
+        <title>Support Ops Triage Environment</title>
+        <style>
+            :root {
+                --bg: #0f172a;
+                --panel: #111827;
+                --panel-border: #1f2937;
+                --text: #e5e7eb;
+                --muted: #9ca3af;
+                --accent: #38bdf8;
+            }
+            * { box-sizing: border-box; }
+            body {
+                margin: 0;
+                font-family: "Segoe UI", "Helvetica Neue", Helvetica, sans-serif;
+                color: var(--text);
+                background:
+                    radial-gradient(1100px 600px at 10% -10%, #1d4ed8 0%, rgba(29, 78, 216, 0) 55%),
+                    radial-gradient(1000px 700px at 100% 0%, #0ea5e9 0%, rgba(14, 165, 233, 0) 45%),
+                    var(--bg);
+                min-height: 100vh;
+                display: grid;
+                place-items: center;
+                padding: 24px;
+            }
+            .card {
+                width: min(840px, 100%);
+                background: linear-gradient(180deg, rgba(17, 24, 39, 0.92), rgba(15, 23, 42, 0.96));
+                border: 1px solid var(--panel-border);
+                border-radius: 16px;
+                padding: 30px;
+                box-shadow: 0 18px 45px rgba(2, 6, 23, 0.45);
+            }
+            h1 {
+                margin: 0 0 10px;
+                font-size: clamp(26px, 3vw, 36px);
+                letter-spacing: 0.2px;
+            }
+            p {
+                margin: 0;
+                color: var(--muted);
+                line-height: 1.58;
+            }
+            .meta {
+                margin-top: 18px;
+                font-size: 13px;
+                color: #cbd5e1;
+            }
+            .grid {
+                margin-top: 22px;
+                display: grid;
+                gap: 10px;
+            }
+            .row {
+                display: grid;
+                grid-template-columns: 150px 1fr;
+                gap: 14px;
+                align-items: center;
+                border: 1px solid #263444;
+                border-radius: 10px;
+                padding: 10px 12px;
+                background: rgba(15, 23, 42, 0.55);
+            }
+            .method {
+                color: var(--accent);
+                font-weight: 700;
+                font-size: 13px;
+            }
+            code {
+                color: #f8fafc;
+                font-size: 13px;
+            }
+            a {
+                color: var(--accent);
+                text-decoration: none;
+            }
+            a:hover { text-decoration: underline; }
+        </style>
+    </head>
+    <body>
+        <main class=\"card\">
+            <h1>Support Ops Triage Environment</h1>
+            <p>
+                Production-style OpenEnv API for support ticket triage evaluation. This Space exposes
+                deterministic tasks, grading endpoints, and baseline execution endpoints.
+            </p>
+            <div class=\"meta\">Status: <a href=\"/health\">healthy check</a></div>
+            <section class=\"grid\" aria-label=\"endpoint index\">
+                <div class=\"row\"><span class=\"method\">GET</span><code>/health</code></div>
+                <div class=\"row\"><span class=\"method\">GET</span><code>/tasks</code></div>
+                <div class=\"row\"><span class=\"method\">POST</span><code>/reset</code></div>
+                <div class=\"row\"><span class=\"method\">POST</span><code>/step</code></div>
+                <div class=\"row\"><span class=\"method\">GET</span><code>/state</code></div>
+                <div class=\"row\"><span class=\"method\">GET / POST</span><code>/grader</code></div>
+                <div class=\"row\"><span class=\"method\">POST</span><code>/baseline</code></div>
+            </section>
+        </main>
+    </body>
+</html>
+"""
+
+
+@app.get("/", include_in_schema=False, response_class=HTMLResponse)
+def landing() -> str:
+        """Human-friendly landing page for Space viewers."""
+        return _LANDING_HTML
+
+
+@app.get("/favicon.ico", include_in_schema=False)
+def favicon() -> Response:
+        """Return empty favicon to avoid repeated browser 404s."""
+        return Response(status_code=204)
+
+
+@app.get("/web/health", include_in_schema=False)
+def web_health_alias() -> Dict[str, str]:
+        """Alias for health probes that target /web/health."""
+        return {"status": "healthy"}
 
 
 @app.get("/tasks")
