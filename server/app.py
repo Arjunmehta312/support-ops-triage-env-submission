@@ -10,8 +10,8 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
-from fastapi import Body
-from fastapi.responses import HTMLResponse, Response
+from fastapi import Body, Request
+from fastapi.responses import HTMLResponse, JSONResponse, Response
 
 try:
     from openenv.core.env_server.http_server import create_app
@@ -170,6 +170,19 @@ _LANDING_HTML = """<!doctype html>
     </body>
 </html>
 """
+
+
+@app.middleware("http")
+async def space_noise_guard(request: Request, call_next):
+    """Serve friendly responses for common browser/probe root requests."""
+    path = request.url.path
+    if path == "/":
+        return HTMLResponse(_LANDING_HTML)
+    if path == "/favicon.ico":
+        return Response(status_code=204)
+    if path == "/web/health":
+        return JSONResponse({"status": "healthy"})
+    return await call_next(request)
 
 
 @app.get("/", include_in_schema=False, response_class=HTMLResponse)
