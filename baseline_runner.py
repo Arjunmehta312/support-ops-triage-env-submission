@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import time
 from dataclasses import dataclass
 from typing import Any, Dict, List, Literal, TYPE_CHECKING
 
@@ -32,6 +33,13 @@ except ImportError:  # pragma: no cover
 @dataclass
 class BaselineConfig:
     model: str = "gpt-4.1-mini"
+    openrouter_model: str = "nvidia/nemotron-3-super-120b-a12b:free"
+    provider_mode: Literal["heuristic", "openai", "openrouter", "auto"] = "heuristic"
+    openrouter_base_url: str = "https://openrouter.ai/api/v1"
+    max_model_retries: int = 3
+    max_output_tokens: int = 96
+    model_timeout_seconds: float = 20.0
+    enable_openrouter_reasoning: bool = False
     max_steps_per_task: int = 36
     run_seed: int = 42
 
@@ -137,9 +145,14 @@ def _extract_json_object(text: str) -> dict:
 def _openai_action(
     client: OpenAIClient,
     model: str,
+    provider: Literal["openai", "openrouter"],
     task_brief: dict,
     observation: dict,
     run_seed: int,
+    max_retries: int,
+    max_output_tokens: int,
+    request_timeout_seconds: float,
+    enable_openrouter_reasoning: bool,
 ) -> SupportOpsTriageAction:
     """Call OpenAI model for one policy step."""
     system_prompt = (
@@ -175,23 +188,152 @@ def _openai_action(
         },
     }
 
-    response = client.responses.create(
-        model=model,
-        temperature=0,
-        seed=run_seed,
-        input=[
+    request_kwargs: Dict[str, Any] = {
+        "model": model,
+        "temperature": 0,
+        "seed": run_seed,
+        "max_tokens": max_output_tokens,
+        "response_format": {"type": "json_object"},
+        "messages": [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": json.dumps(user_prompt)},
         ],
-    )
-    payload = _extract_json_object(response.output_text)
-    return SupportOpsTriageAction.model_validate(payload)
+    }
+    if provider == "openrouter" and enable_openrouter_reasoning:
+        # OpenRouter accepts provider-specific settings through extra_body.
+        request_kwargs["extra_body"] = {"reasoning": {"enabled": True}}
+
+    last_error: Exception | None = None
+    for attempt in range(max_retries + 1):
+        try:
+            response = client.chat.completions.create(
+                timeout=request_timeout_seconds,
+                **request_kwargs,
+            )
+            content = response.choices[0].message.content or ""
+            payload = _extract_json_object(content)
+            return SupportOpsTriageAction.model_validate(payload)
+        except Exception as e:  # pragma: no cover - provider/network dependent
+            last_error = e
+            if attempt >= max_retries:
+                break
+            time.sleep(min(2 ** attempt, 8))
+
+    assert last_error is not None
+    raise last_error
+
+
+def _build_openrouter_headers() -> Dict[str, str]:
+    """Build optional OpenRouter attribution headers from env vars."""
+    headers: Dict[str, str] = {}
+    site_url = os.getenv("OPENROUTER_SITE_URL", "").strip()
+    app_name = os.getenv("OPENROUTER_APP_NAME", "").strip()
+    if site_url:
+        headers["HTTP-Referer"] = site_url
+    if app_name:
+        headers["X-OpenRouter-Title"] = app_name
+    return headers
+
+
+def _env_bool(name: str, default: bool) -> bool:
+    """Parse a boolean environment variable."""
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _env_int(name: str, default: int) -> int:
+    """Parse an integer environment variable with fallback."""
+    raw = os.getenv(name)
+    if raw is None or not raw.strip():
+        return default
+    try:
+        return int(raw.strip())
+    except ValueError:
+        return default
+
+
+def _env_float(name: str, default: float) -> float:
+    """Parse a float environment variable with fallback."""
+    raw = os.getenv(name)
+    if raw is None or not raw.strip():
+        return default
+    try:
+        return float(raw.strip())
+    except ValueError:
+        return default
+
+
+def _resolve_provider_client(
+    cfg: BaselineConfig,
+) -> tuple[Literal["heuristic", "openai", "openrouter"], OpenAIClient | None, str]:
+    """Resolve baseline provider + client from environment and config."""
+    provider_mode = os.getenv("BASELINE_PROVIDER", cfg.provider_mode).strip().lower()
+    openai_key = os.getenv("OPENAI_API_KEY", "").strip()
+    openrouter_key = os.getenv("OPENROUTER_API_KEY", "").strip()
+
+    if provider_mode == "heuristic":
+        return "heuristic", None, os.getenv("OPENAI_MODEL", cfg.model)
+
+    if OpenAI is None:
+        return "heuristic", None, os.getenv("OPENAI_MODEL", cfg.model)
+
+    if provider_mode == "openrouter":
+        if not openrouter_key:
+            return "heuristic", None, os.getenv("OPENROUTER_MODEL", cfg.openrouter_model)
+        client_kwargs: Dict[str, Any] = {
+            "api_key": openrouter_key,
+            "base_url": os.getenv("OPENROUTER_BASE_URL", cfg.openrouter_base_url),
+            "timeout": cfg.model_timeout_seconds,
+        }
+        default_headers = _build_openrouter_headers()
+        if default_headers:
+            client_kwargs["default_headers"] = default_headers
+        return (
+            "openrouter",
+            OpenAI(**client_kwargs),
+            os.getenv("OPENROUTER_MODEL", cfg.openrouter_model),
+        )
+
+    if provider_mode == "openai":
+        if not openai_key:
+            return "heuristic", None, os.getenv("OPENAI_MODEL", cfg.model)
+        return (
+            "openai",
+            OpenAI(api_key=openai_key, timeout=cfg.model_timeout_seconds),
+            os.getenv("OPENAI_MODEL", cfg.model),
+        )
+
+    # auto mode: prefer OpenRouter key, then OpenAI key, else heuristic.
+    if openrouter_key:
+        client_kwargs = {
+            "api_key": openrouter_key,
+            "base_url": os.getenv("OPENROUTER_BASE_URL", cfg.openrouter_base_url),
+            "timeout": cfg.model_timeout_seconds,
+        }
+        default_headers = _build_openrouter_headers()
+        if default_headers:
+            client_kwargs["default_headers"] = default_headers
+        return (
+            "openrouter",
+            OpenAI(**client_kwargs),
+            os.getenv("OPENROUTER_MODEL", cfg.openrouter_model),
+        )
+    if openai_key:
+        return (
+            "openai",
+            OpenAI(api_key=openai_key, timeout=cfg.model_timeout_seconds),
+            os.getenv("OPENAI_MODEL", cfg.model),
+        )
+    return "heuristic", None, os.getenv("OPENAI_MODEL", cfg.model)
 
 
 def _play_task(
     env: SupportOpsTriageEnvironment,
     task_id: str,
-    provider: Literal["openai", "heuristic"],
+    provider: Literal["openai", "openrouter", "heuristic"],
+    model: str,
     config: BaselineConfig,
     client: OpenAIClient | None,
 ) -> float:
@@ -204,16 +346,28 @@ def _play_task(
         "max_steps": env.state.max_steps,
     }
 
+    llm_available = provider in ("openai", "openrouter") and client is not None
+
     for _ in range(config.max_steps_per_task):
         obs_payload = obs.model_dump()
-        if provider == "openai" and client is not None:
-            action = _openai_action(
-                client=client,
-                model=config.model,
-                task_brief=task_brief,
-                observation=obs_payload,
-                run_seed=config.run_seed,
-            )
+        if llm_available and client is not None:
+            try:
+                action = _openai_action(
+                    client=client,
+                    model=model,
+                    provider=provider,
+                    task_brief=task_brief,
+                    observation=obs_payload,
+                    run_seed=config.run_seed,
+                    max_retries=config.max_model_retries,
+                    max_output_tokens=config.max_output_tokens,
+                    request_timeout_seconds=config.model_timeout_seconds,
+                    enable_openrouter_reasoning=config.enable_openrouter_reasoning,
+                )
+            except Exception:  # pragma: no cover - external model/provider fallback
+                # Avoid repeated long waits: once provider calls fail, use heuristic for rest of task.
+                llm_available = False
+                action = _heuristic_action(obs_payload)
         else:
             action = _heuristic_action(obs_payload)
 
@@ -235,13 +389,31 @@ def _play_task(
 def run_baseline(config: BaselineConfig | None = None) -> BaselineResponse:
     """Execute baseline evaluation over all task difficulties."""
     cfg = config or BaselineConfig()
-    api_key = os.getenv("OPENAI_API_KEY", "").strip()
+    cfg.max_model_retries = max(0, _env_int("BASELINE_MAX_MODEL_RETRIES", cfg.max_model_retries))
+    cfg.max_output_tokens = max(16, _env_int("BASELINE_MAX_OUTPUT_TOKENS", cfg.max_output_tokens))
+    cfg.model_timeout_seconds = max(
+        3.0,
+        _env_float("BASELINE_MODEL_TIMEOUT_SECONDS", cfg.model_timeout_seconds),
+    )
+    cfg.max_steps_per_task = max(1, _env_int("BASELINE_MAX_STEPS_PER_TASK", cfg.max_steps_per_task))
+    cfg.enable_openrouter_reasoning = _env_bool(
+        "OPENROUTER_REASONING_ENABLED", cfg.enable_openrouter_reasoning
+    )
 
-    provider: Literal["openai", "heuristic"] = "heuristic"
-    client = None
-    if api_key and OpenAI is not None:
-        provider = "openai"
-        client = OpenAI(api_key=api_key)
+    # Optional OpenRouter-specific overrides for faster troubleshooting.
+    cfg.max_model_retries = max(
+        0,
+        _env_int("OPENROUTER_MAX_MODEL_RETRIES", cfg.max_model_retries),
+    )
+    cfg.max_output_tokens = max(
+        16,
+        _env_int("OPENROUTER_MAX_OUTPUT_TOKENS", cfg.max_output_tokens),
+    )
+    cfg.model_timeout_seconds = max(
+        3.0,
+        _env_float("OPENROUTER_MODEL_TIMEOUT_SECONDS", cfg.model_timeout_seconds),
+    )
+    provider, client, model = _resolve_provider_client(cfg)
 
     env = SupportOpsTriageEnvironment()
     scores: Dict[str, float] = {}
@@ -253,6 +425,7 @@ def run_baseline(config: BaselineConfig | None = None) -> BaselineResponse:
                     env=env,
                     task_id=task_id,
                     provider=provider,
+                    model=model,
                     config=cfg,
                     client=client,
                 ),
@@ -263,7 +436,7 @@ def run_baseline(config: BaselineConfig | None = None) -> BaselineResponse:
 
     average = round(sum(scores.values()) / max(len(scores), 1), 6)
     return BaselineResponse(
-        model=cfg.model,
+        model=model,
         provider=provider,
         task_scores=scores,
         average_score=average,

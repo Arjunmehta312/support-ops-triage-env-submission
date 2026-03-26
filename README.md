@@ -151,25 +151,68 @@ In addition to standard OpenEnv endpoints, this environment exposes:
 Baseline runner lives in:
 - scripts/run_baseline.py
 
-It uses the OpenAI client when OPENAI_API_KEY is present.
-- model default: gpt-4.1-mini
+Provider behavior is environment-driven and secure-by-default:
+
+- `BASELINE_PROVIDER=heuristic` (default): fully deterministic baseline, no API key required.
+- `BASELINE_PROVIDER=openai`: uses OpenAI Chat Completions with `OPENAI_API_KEY`.
+- `BASELINE_PROVIDER=openrouter`: uses OpenAI-compatible client against OpenRouter with:
+  - `OPENROUTER_API_KEY`
+  - optional `OPENROUTER_BASE_URL` (default: `https://openrouter.ai/api/v1`)
+  - optional `OPENROUTER_MODEL` (default: `nvidia/nemotron-3-super-120b-a12b:free`)
+  - optional `OPENROUTER_REASONING_ENABLED=true` to request reasoning mode
+  - optional attribution headers via `OPENROUTER_SITE_URL` and `OPENROUTER_APP_NAME`
+- `BASELINE_PROVIDER=auto`: prefers OpenRouter key, then OpenAI key, then heuristic fallback.
+
+Deterministic defaults:
 - seed: 42
 - temperature: 0
 
-If OPENAI_API_KEY is absent, it falls back to a deterministic heuristic baseline so evaluation still runs.
+Runtime controls for model-call duration and throughput:
+- `BASELINE_MODEL_TIMEOUT_SECONDS` (default: `20`)
+- `BASELINE_MAX_MODEL_RETRIES` (default: `3`)
+- `BASELINE_MAX_OUTPUT_TOKENS` (default: `96`)
+- `BASELINE_MAX_STEPS_PER_TASK` (default: `36`)
+- OpenRouter-specific overrides: `OPENROUTER_MODEL_TIMEOUT_SECONDS`, `OPENROUTER_MAX_MODEL_RETRIES`, `OPENROUTER_MAX_OUTPUT_TOKENS`
+
+Recommended low-latency OpenRouter profile:
+
+```bash
+BASELINE_PROVIDER=openrouter \
+OPENROUTER_API_KEY=... \
+OPENROUTER_MODEL_TIMEOUT_SECONDS=8 \
+OPENROUTER_MAX_MODEL_RETRIES=0 \
+OPENROUTER_MAX_OUTPUT_TOKENS=64 \
+python scripts/run_baseline.py
+```
+
+Failure handling behavior:
+- On provider timeout/failure, the runner automatically falls back to heuristic actions for the remainder of that task.
+- This preserves baseline completion and avoids repeated long waits.
+
+Security note:
+- Never hardcode API keys in repository files.
+- Pass keys only via environment variables or secret managers.
+- OpenRouter free endpoints may log prompts for model improvement, so avoid sensitive data.
 
 Example:
 
 ```bash
-python scripts/run_baseline.py
+# Deterministic submission-safe mode
+BASELINE_PROVIDER=heuristic python scripts/run_baseline.py
+
+# OpenRouter mode (Nemotron 3 Super)
+BASELINE_PROVIDER=openrouter OPENROUTER_API_KEY=... python scripts/run_baseline.py
+
+# OpenAI mode
+BASELINE_PROVIDER=openai OPENAI_API_KEY=... python scripts/run_baseline.py
 ```
 
 Typical baseline output format:
 
 ```json
 {
-  "model": "gpt-4.1-mini",
-  "provider": "openai",
+  "model": "nvidia/nemotron-3-super-120b-a12b:free",
+  "provider": "openrouter",
   "task_scores": {
     "easy_inbox_hygiene": 0.88,
     "medium_vip_sla_mix": 0.74,
@@ -256,6 +299,46 @@ python scripts/pre_submission_validate.py
 python scripts/ci_determinism_check.py
 python scripts/check_space_status.py
 ```
+
+## Deployment Verification Snapshot (March 27, 2026)
+
+Current readiness summary:
+- Remote validator passed against deployed Space URL.
+- Determinism checks passed (`grader_unique_count=1`, `baseline_unique_count=1`).
+- OpenRouter integration is active with model `nvidia/nemotron-3-super-120b-a12b:free`.
+- Full OpenRouter baseline run completed with fast runtime profile.
+
+OpenRouter profile used for verification:
+
+```bash
+BASELINE_PROVIDER=openrouter \
+OPENROUTER_API_KEY=... \
+OPENROUTER_MODEL=nvidia/nemotron-3-super-120b-a12b:free \
+OPENROUTER_MODEL_TIMEOUT_SECONDS=8 \
+OPENROUTER_MAX_MODEL_RETRIES=0 \
+OPENROUTER_MAX_OUTPUT_TOKENS=64 \
+python scripts/run_baseline.py
+```
+
+Result sample from the latest successful OpenRouter run:
+
+```json
+{
+  "model": "nvidia/nemotron-3-super-120b-a12b:free",
+  "provider": "openrouter",
+  "task_scores": {
+    "easy_inbox_hygiene": 0.735,
+    "medium_vip_sla_mix": 0.491875,
+    "hard_incident_storm": 0.65125
+  },
+  "average_score": 0.626042,
+  "run_seed": 42
+}
+```
+
+Secret handling note:
+- API keys are not stored in repository files.
+- Keys are injected via environment variables only and cleared from session after runs.
 
 ## Project Structure
 

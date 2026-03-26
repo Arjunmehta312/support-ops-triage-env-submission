@@ -151,7 +151,7 @@ class BaselineResponse(BaseModel):
     """Baseline benchmark payload for all tasks."""
 
     model: str
-    provider: Literal["openai", "heuristic"]
+    provider: Literal["openai", "openrouter", "heuristic"]
     task_scores: Dict[str, float]
     average_score: float
     run_seed: int
