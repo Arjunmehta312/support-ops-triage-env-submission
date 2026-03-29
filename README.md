@@ -33,6 +33,22 @@ This is not a toy domain. It simulates realistic support workflows used by SaaS 
 - responding with policy-safe templates
 - resolving tickets and producing end-of-shift summaries
 
+## Submission Status (March 29, 2026)
+
+This environment is submission-ready and production-functional.
+
+What is verified:
+- Hugging Face Space is deployed and serving the latest submission runtime.
+- Web Playground route is available at `/web`.
+- `reset` and `step` operations return healthy responses.
+- The previous UI crash path (`'str' object has no attribute 'get'`) is resolved in live runtime behavior.
+- End-to-end remote validation passes using `scripts/pre_submission_validate.py`.
+
+Recommended final gate before portal submit:
+1. Run `python scripts/check_space_status.py --owner Arjunmehta312 --space support-ops-triage-env`.
+2. Confirm required checks are OK (`runtime_api`, `/health`, `/tasks`).
+3. Run `python scripts/pre_submission_validate.py` with `OPENENV_BASE_URL` set to the Space URL.
+
 ## Why This Environment Matters
 
 Most current agent environments benchmark coding or games. Real enterprise support teams need dependable triage policies under time pressure. This environment models that gap with deterministic grading, dense reward shaping, and task difficulty progression that maps to actual on-call support workflows.
@@ -359,12 +375,12 @@ python scripts/check_space_status.py
 ## Deployment Verification Snapshot (March 29, 2026)
 
 Current readiness summary:
-- Remote validator passed against deployed Space URL.
+- Remote validator passed against the deployed Space URL.
 - Determinism checks passed (`grader_unique_count=1`, `baseline_unique_count=1`).
 - OpenRouter integration is active with model `nvidia/nemotron-3-super-120b-a12b:free`.
-- Full OpenRouter baseline run completed with fast runtime profile.
-- Latest push to HF Space succeeded via `openenv push --repo-id Arjunmehta312/support-ops-triage-env`.
-- Post-push Space can be `BUILDING` briefly; confirm readiness with `scripts/check_space_status.py`.
+- `/web` route and `reset/step` API flow were validated against live deployment.
+- Post-push Space may report transitional stages (`BUILDING`, `APP_STARTING`) while still serving traffic.
+- Final readiness should be judged by endpoint checks and validator pass, not stage label alone.
 
 OpenRouter profile used for verification:
 
