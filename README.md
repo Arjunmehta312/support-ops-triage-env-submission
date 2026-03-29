@@ -348,13 +348,15 @@ python scripts/ci_determinism_check.py
 python scripts/check_space_status.py
 ```
 
-## Deployment Verification Snapshot (March 27, 2026)
+## Deployment Verification Snapshot (March 29, 2026)
 
 Current readiness summary:
 - Remote validator passed against deployed Space URL.
 - Determinism checks passed (`grader_unique_count=1`, `baseline_unique_count=1`).
 - OpenRouter integration is active with model `nvidia/nemotron-3-super-120b-a12b:free`.
 - Full OpenRouter baseline run completed with fast runtime profile.
+- Latest push to HF Space succeeded via `openenv push --repo-id Arjunmehta312/support-ops-triage-env`.
+- Post-push Space can be `BUILDING` briefly; confirm readiness with `scripts/check_space_status.py`.
 
 OpenRouter profile used for verification:
 
@@ -377,9 +379,9 @@ Result sample from the latest successful OpenRouter run:
   "task_scores": {
     "easy_inbox_hygiene": 0.735,
     "medium_vip_sla_mix": 0.491875,
-    "hard_incident_storm": 0.65125
+    "hard_incident_storm": 0.497083
   },
-  "average_score": 0.626042,
+  "average_score": 0.574653,
   "run_seed": 42
 }
 ```
