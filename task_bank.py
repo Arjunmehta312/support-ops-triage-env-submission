@@ -7,6 +7,16 @@ from typing import Dict, List
 
 TaskData = Dict[str, object]
 
+
+class InvalidTaskIdError(ValueError):
+    """Raised when a task_id is not present in the deterministic task bank."""
+
+    def __init__(self, task_id: object, available_task_ids: List[str]):
+        self.task_id = task_id
+        self.available_task_ids = available_task_ids
+        available = ", ".join(available_task_ids)
+        super().__init__(f"Unknown task_id '{task_id}'. Available: {available}")
+
 _TASKS: Dict[str, TaskData] = {
     "easy_inbox_hygiene": {
         "task_id": "easy_inbox_hygiene",
@@ -274,8 +284,7 @@ def list_task_briefs() -> List[Dict[str, object]]:
 def get_task(task_id: str) -> TaskData:
     """Return deep-copied task data by id."""
     if task_id not in _TASKS:
-        available = ", ".join(sorted(_TASKS.keys()))
-        raise KeyError(f"Unknown task_id '{task_id}'. Available: {available}")
+        raise InvalidTaskIdError(task_id=task_id, available_task_ids=sorted(_TASKS.keys()))
     return deepcopy(_TASKS[task_id])
 
 

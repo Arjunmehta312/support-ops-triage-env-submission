@@ -32,6 +32,7 @@ try:
         SupportOpsTriageObservation,
     )
     from support_ops_triage_env.task_bank import list_task_briefs
+    from support_ops_triage_env.task_bank import InvalidTaskIdError
     from support_ops_triage_env.server.support_ops_triage_env_environment import (
         SupportOpsTriageEnvironment,
     )
@@ -46,6 +47,7 @@ except ModuleNotFoundError:
         SupportOpsTriageObservation,
     )
     from task_bank import list_task_briefs
+    from task_bank import InvalidTaskIdError
     from server.support_ops_triage_env_environment import SupportOpsTriageEnvironment
 
 
@@ -121,6 +123,20 @@ app = create_app(
     env_name="support_ops_triage_env",
     max_concurrent_envs=1,
 )
+
+
+@app.exception_handler(InvalidTaskIdError)
+async def invalid_task_id_exception_handler(request: Request, exc: InvalidTaskIdError):
+    """Return a client error for unknown task IDs instead of an internal server error."""
+    return JSONResponse(
+        status_code=400,
+        content={
+            "error": "invalid_task_id",
+            "detail": str(exc),
+            "task_id": exc.task_id,
+            "available_task_ids": exc.available_task_ids,
+        },
+    )
 
 
 _LANDING_HTML = """<!doctype html>
