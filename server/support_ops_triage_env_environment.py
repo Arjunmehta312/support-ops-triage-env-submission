@@ -184,6 +184,20 @@ class SupportOpsTriageEnvironment(Environment):
         messages: List[str],
         done: bool,
     ) -> SupportOpsTriageObservation:
+        structured_messages = []
+        for msg in messages:
+            category = "warning" if any(
+                token in msg.lower()
+                for token in ["invalid", "missing", "unsupported", "too early", "already"]
+            ) else "info"
+            structured_messages.append(
+                {
+                    "sender_id": "env",
+                    "category": category,
+                    "content": msg,
+                }
+            )
+
         return SupportOpsTriageObservation(
             task_id=self._state.task_id,
             difficulty=self._state.difficulty,
@@ -192,7 +206,7 @@ class SupportOpsTriageEnvironment(Environment):
             focus_ticket_id=self._state.focus_ticket_id,
             pending_count=len([t for t in self._state.tickets if t.status != "resolved"]),
             progress_score=self._state.progress_score,
-            messages=messages,
+            messages=structured_messages,
             done=done,
             reward=reward_signal.total_reward,
             reward_signal=reward_signal,

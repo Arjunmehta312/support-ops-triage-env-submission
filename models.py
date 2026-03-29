@@ -82,6 +82,14 @@ class TaskBrief(BaseModel):
     max_steps: int
 
 
+class ObservationMessage(BaseModel):
+    """Structured message entry for web/UI rendering."""
+
+    sender_id: str = Field(default="env")
+    category: str = Field(default="info")
+    content: str
+
+
 class SupportOpsTriageAction(Action):
     """Structured action schema used by policy models and human agents."""
 
@@ -111,7 +119,7 @@ class SupportOpsTriageObservation(Observation):
     focus_ticket_id: Optional[str] = Field(default=None)
     pending_count: int = Field(default=0)
     progress_score: float = Field(default=0.0)
-    messages: List[str] = Field(default_factory=list)
+    messages: List[ObservationMessage] = Field(default_factory=list)
     reward_signal: RewardSignal = Field(default_factory=RewardSignal)
 
 
