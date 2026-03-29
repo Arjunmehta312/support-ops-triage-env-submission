@@ -15,6 +15,14 @@ tags:
 
 # Support Ops Triage Environment
 
+## Important: This Is The Official Submission Environment
+
+This directory (`support_ops_triage_env/`) is the actual environment to be submitted for the hackathon.
+
+Repository-wide clarification:
+- This folder contains the real implementation, deployment config, validator flow, and baseline runner used for submission.
+- Other repository folders are supplementary (prep scripts, notes, docs, and learning material).
+
 A production-style OpenEnv environment for training and evaluating agents on customer support operations triage.
 
 This is not a toy domain. It simulates realistic support workflows used by SaaS operations teams:
