@@ -48,6 +48,43 @@ Manifest:
 Validation command:
 - openenv validate .
 
+## Submission Artifacts
+
+This directory is submission-ready as a standalone environment repository root.
+
+Required files included:
+- `openenv.yaml`
+- `Dockerfile`
+- `README.md`
+- `inference.py` (root-level entrypoint)
+- `requirements.txt`
+- `.env.example`
+
+Primary submission outputs:
+- GitHub repository link
+- Hugging Face Space URL
+
+## Portal Additional Instruction Compliance
+
+The submission supports the required inference environment variables:
+- `API_BASE_URL`
+- `MODEL_NAME`
+- `HF_TOKEN`
+
+`inference.py` maps these values to baseline runtime configuration and executes the benchmark with the OpenAI client path used in baseline inference.
+
+### Environment Configuration
+
+For local development:
+1. Copy `.env.example` to `.env`
+2. Fill in `HF_TOKEN`
+3. Run `python inference.py`
+
+For Hugging Face Space secrets, set:
+- `API_BASE_URL`
+- `MODEL_NAME`
+- `HF_TOKEN`
+
 ## Action Space
 
 SupportOpsTriageAction has operation plus optional fields depending on operation.
@@ -150,6 +187,7 @@ In addition to standard OpenEnv endpoints, this environment exposes:
 
 Baseline runner lives in:
 - scripts/run_baseline.py
+- inference.py (portal submission entrypoint)
 
 Provider behavior is environment-driven and secure-by-default:
 
@@ -193,6 +231,15 @@ Security note:
 - Never hardcode API keys in repository files.
 - Pass keys only via environment variables or secret managers.
 - OpenRouter free endpoints may log prompts for model improvement, so avoid sensitive data.
+
+Portal-compliant inference command:
+
+```bash
+API_BASE_URL=https://openrouter.ai/api/v1 \
+MODEL_NAME=nvidia/nemotron-3-super-120b-a12b:free \
+HF_TOKEN=... \
+python inference.py
+```
 
 Example:
 
@@ -278,6 +325,7 @@ python scripts/pre_submission_validate.py
 
 The validator checks:
 - openenv validate passes
+- inference.py exists and executes successfully
 - health endpoint
 - tasks endpoint and 3+ tasks
 - reset/step/state availability

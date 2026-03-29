@@ -270,21 +270,40 @@ def _resolve_provider_client(
 ) -> tuple[Literal["heuristic", "openai", "openrouter"], OpenAIClient | None, str]:
     """Resolve baseline provider + client from environment and config."""
     provider_mode = os.getenv("BASELINE_PROVIDER", cfg.provider_mode).strip().lower()
-    openai_key = os.getenv("OPENAI_API_KEY", "").strip()
-    openrouter_key = os.getenv("OPENROUTER_API_KEY", "").strip()
+    openai_key = (
+        os.getenv("OPENAI_API_KEY", "").strip()
+        or os.getenv("API_KEY", "").strip()
+        or os.getenv("HF_TOKEN", "").strip()
+    )
+    openrouter_key = os.getenv("OPENROUTER_API_KEY", "").strip() or os.getenv("HF_TOKEN", "").strip()
+    openrouter_base_url = (
+        os.getenv("OPENROUTER_BASE_URL", "").strip()
+        or os.getenv("API_BASE_URL", "").strip()
+        or cfg.openrouter_base_url
+    )
+    openrouter_model = (
+        os.getenv("OPENROUTER_MODEL", "").strip()
+        or os.getenv("MODEL_NAME", "").strip()
+        or cfg.openrouter_model
+    )
+    openai_model = (
+        os.getenv("OPENAI_MODEL", "").strip()
+        or os.getenv("MODEL_NAME", "").strip()
+        or cfg.model
+    )
 
     if provider_mode == "heuristic":
-        return "heuristic", None, os.getenv("OPENAI_MODEL", cfg.model)
+        return "heuristic", None, openai_model
 
     if OpenAI is None:
-        return "heuristic", None, os.getenv("OPENAI_MODEL", cfg.model)
+        return "heuristic", None, openai_model
 
     if provider_mode == "openrouter":
         if not openrouter_key:
-            return "heuristic", None, os.getenv("OPENROUTER_MODEL", cfg.openrouter_model)
+            return "heuristic", None, openrouter_model
         client_kwargs: Dict[str, Any] = {
             "api_key": openrouter_key,
-            "base_url": os.getenv("OPENROUTER_BASE_URL", cfg.openrouter_base_url),
+            "base_url": openrouter_base_url,
             "timeout": cfg.model_timeout_seconds,
         }
         default_headers = _build_openrouter_headers()
@@ -293,23 +312,23 @@ def _resolve_provider_client(
         return (
             "openrouter",
             OpenAI(**client_kwargs),
-            os.getenv("OPENROUTER_MODEL", cfg.openrouter_model),
+            openrouter_model,
         )
 
     if provider_mode == "openai":
         if not openai_key:
-            return "heuristic", None, os.getenv("OPENAI_MODEL", cfg.model)
+            return "heuristic", None, openai_model
         return (
             "openai",
             OpenAI(api_key=openai_key, timeout=cfg.model_timeout_seconds),
-            os.getenv("OPENAI_MODEL", cfg.model),
+            openai_model,
         )
 
     # auto mode: prefer OpenRouter key, then OpenAI key, else heuristic.
     if openrouter_key:
         client_kwargs = {
             "api_key": openrouter_key,
-            "base_url": os.getenv("OPENROUTER_BASE_URL", cfg.openrouter_base_url),
+            "base_url": openrouter_base_url,
             "timeout": cfg.model_timeout_seconds,
         }
         default_headers = _build_openrouter_headers()
@@ -318,15 +337,15 @@ def _resolve_provider_client(
         return (
             "openrouter",
             OpenAI(**client_kwargs),
-            os.getenv("OPENROUTER_MODEL", cfg.openrouter_model),
+            openrouter_model,
         )
     if openai_key:
         return (
             "openai",
             OpenAI(api_key=openai_key, timeout=cfg.model_timeout_seconds),
-            os.getenv("OPENAI_MODEL", cfg.model),
+            openai_model,
         )
-    return "heuristic", None, os.getenv("OPENAI_MODEL", cfg.model)
+    return "heuristic", None, openai_model
 
 
 def _play_task(
