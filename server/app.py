@@ -8,6 +8,7 @@
 
 from __future__ import annotations
 
+import os
 from typing import Any, Dict
 
 from fastapi import Body, Request
@@ -106,6 +107,10 @@ def _patch_openenv_web_message_format() -> None:
 
 
 _patch_openenv_web_message_format()
+
+# OpenEnv 0.2.x gates Gradio UI behind ENABLE_WEB_INTERFACE.
+# Force-enable for Space so /web (Playground) is always mounted.
+os.environ.setdefault("ENABLE_WEB_INTERFACE", "true")
 
 
 # Create the app with web interface and README integration
