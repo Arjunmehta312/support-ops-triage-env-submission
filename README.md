@@ -15,6 +15,11 @@ tags:
 
 # Support Ops Triage Environment
 
+[![Python](https://img.shields.io/badge/Python-3.12-blue)](https://www.python.org/downloads/release/python-3120/)
+[![OpenEnv](https://img.shields.io/badge/OpenEnv-Compatible-0A7BFF)](https://github.com/huggingface/openenv)
+[![HF Space](https://img.shields.io/badge/Hugging%20Face-Space-yellow)](https://huggingface.co/spaces/Arjunmehta312/support-ops-triage-env)
+[![SDK](https://img.shields.io/badge/Space%20SDK-Docker-2496ED)](https://huggingface.co/docs/hub/spaces-sdks-docker)
+
 ## Important: This Is The Official Submission Environment
 
 This directory (`support_ops_triage_env/`) is the actual environment to be submitted for the hackathon.
@@ -24,6 +29,45 @@ Repository-wide clarification:
 - Other repository folders are supplementary (prep scripts, notes, docs, and learning material).
 
 A production-style OpenEnv environment for training and evaluating agents on customer support operations triage.
+
+## Reviewer Quick Links
+
+- Hugging Face Space: https://huggingface.co/spaces/Arjunmehta312/support-ops-triage-env
+- Playground UI (`/web`): https://arjunmehta312-support-ops-triage-env.hf.space/web
+- Health endpoint: https://arjunmehta312-support-ops-triage-env.hf.space/health
+- Tasks endpoint: https://arjunmehta312-support-ops-triage-env.hf.space/tasks
+- OpenAPI schema: https://arjunmehta312-support-ops-triage-env.hf.space/openapi.json
+- Environment metadata: https://arjunmehta312-support-ops-triage-env.hf.space/metadata
+- Workspace repository: https://github.com/Arjunmehta312/meta-pytorch-hackathon
+- Submission repository: https://github.com/Arjunmehta312/support-ops-triage-env-submission
+
+## Endpoint Directory
+
+Base URL: `https://arjunmehta312-support-ops-triage-env.hf.space`
+
+- `GET /web` - Interactive Playground UI
+- `GET /health` - Service health check
+- `GET /tasks` - Task catalog and action schema
+- `POST /reset` - Start a new episode
+- `POST /step` - Execute one environment action
+- `GET /state` - Inspect current environment state
+- `GET /grader` - Latest graded episode summary
+- `POST /grader` - Grade explicit action trajectories
+- `POST /baseline` - Run baseline policy across tasks
+- `GET /openapi.json` - OpenAPI spec
+- `GET /schema` - Environment schema endpoint
+
+## Reviewer Validation Flow (2-3 Minutes)
+
+1. Open Playground at `/web`, click `Reset`, then run one `Step`.
+2. Confirm `/health` and `/tasks` return HTTP 200.
+3. Run remote validator:
+
+```bash
+OPENENV_BASE_URL=https://arjunmehta312-support-ops-triage-env.hf.space python scripts/pre_submission_validate.py
+```
+
+If all checks pass, the deployment is operationally ready.
 
 This is not a toy domain. It simulates realistic support workflows used by SaaS operations teams:
 - classifying inbound tickets
