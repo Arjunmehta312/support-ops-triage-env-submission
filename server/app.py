@@ -56,6 +56,58 @@ def _env_factory() -> SupportOpsTriageEnvironment:
     return _shared_env
 
 
+def _patch_openenv_web_message_format() -> None:
+    """Make web formatter tolerant to string-form messages.
+
+    Some OpenEnv runtime combinations may serialize observation messages as
+    plain strings. The Gradio formatter expects dict messages and can raise
+    `'str' object has no attribute 'get'`. Normalize before formatting.
+    """
+    try:
+        from openenv.core.env_server import gradio_ui as _gradio_ui
+
+        original = getattr(_gradio_ui, "_format_observation", None)
+        if original is None or getattr(original, "__name__", "") == "_safe_format_observation":
+            return
+
+        def _safe_format_observation(data: Dict[str, Any]) -> str:
+            if not isinstance(data, dict):
+                return original(data)
+
+            observation = data.get("observation", {})
+            if isinstance(observation, dict):
+                messages = observation.get("messages", [])
+                if isinstance(messages, list):
+                    normalized = []
+                    for msg in messages:
+                        if isinstance(msg, dict):
+                            normalized.append(msg)
+                        else:
+                            normalized.append(
+                                {
+                                    "sender_id": "env",
+                                    "category": "info",
+                                    "content": str(msg),
+                                }
+                            )
+
+                    patched_observation = dict(observation)
+                    patched_observation["messages"] = normalized
+                    patched_data = dict(data)
+                    patched_data["observation"] = patched_observation
+                    return original(patched_data)
+
+            return original(data)
+
+        _gradio_ui._format_observation = _safe_format_observation
+    except Exception:
+        # Best-effort compatibility patch; no-op if internals differ.
+        return
+
+
+_patch_openenv_web_message_format()
+
+
 # Create the app with web interface and README integration
 app = create_app(
     _env_factory,
