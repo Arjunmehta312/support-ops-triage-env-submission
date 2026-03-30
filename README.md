@@ -69,6 +69,19 @@ OPENENV_BASE_URL=https://arjunmehta312-support-ops-triage-env.hf.space python sc
 
 If all checks pass, the deployment is operationally ready.
 
+Organizer-style one-shot validator (shell):
+
+```bash
+chmod +x scripts/validate-submission.sh
+./scripts/validate-submission.sh https://arjunmehta312-support-ops-triage-env.hf.space .
+```
+
+Windows note:
+- Run this script from Git Bash/WSL. For native PowerShell, keep using:
+```bash
+OPENENV_BASE_URL=https://arjunmehta312-support-ops-triage-env.hf.space python scripts/pre_submission_validate.py
+```
+
 This is not a toy domain. It simulates realistic support workflows used by SaaS operations teams:
 - classifying inbound tickets
 - setting urgency based on SLA pressure
