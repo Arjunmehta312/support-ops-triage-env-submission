@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
+import re
 import subprocess
 import sys
 import time
@@ -89,10 +90,36 @@ def _validate_inference_script() -> None:
             f"stderr:\n{result.stderr}"
         )
 
+    stdout = result.stdout.strip()
+
+    # Preferred submission format: structured logs on stdout.
+    start_lines = [line for line in stdout.splitlines() if line.startswith("[START] ")]
+    step_lines = [line for line in stdout.splitlines() if line.startswith("[STEP] ")]
+    end_lines = [line for line in stdout.splitlines() if line.startswith("[END] ")]
+
+    if start_lines or step_lines or end_lines:
+        _check(bool(start_lines), "inference.py missing [START] lines")
+        _check(bool(step_lines), "inference.py missing [STEP] lines")
+        _check(bool(end_lines), "inference.py missing [END] lines")
+
+        score_re = re.compile(r"\bscore=([0-9]*\.?[0-9]+)")
+        for line in end_lines:
+            match = score_re.search(line)
+            _check(match is not None, f"[END] line missing score: {line}")
+            score = float(match.group(1))
+            _check(0.0 <= score <= 1.0, f"[END] score out of range [0,1]: {line}")
+        return
+
+    # Backward-compatible fallback: JSON payload on stdout.
     try:
-        payload = json.loads(result.stdout)
+        payload = json.loads(stdout)
     except json.JSONDecodeError as exc:
-        raise AssertionError(f"inference.py did not output valid JSON: {exc}") from exc
+        raise AssertionError(
+            "inference.py output did not match structured stdout or JSON fallback.\n"
+            f"stdout:\n{stdout}\n\n"
+            f"stderr:\n{result.stderr}\n\n"
+            f"json_error: {exc}"
+        ) from exc
 
     _check("task_scores" in payload, "inference.py output missing task_scores")
     _check("average_score" in payload, "inference.py output missing average_score")
