@@ -170,9 +170,13 @@ def _run_with_structured_logs(cfg: BaselineConfig) -> dict[str, float]:
 def main() -> int:
     _load_local_env()
 
+    # Optional placeholder for environments using from_docker_image().
+    # Kept for checklist parity; not used by this local in-process environment.
+    local_image_name = os.getenv("LOCAL_IMAGE_NAME", "").strip()
+
     api_base_url = os.getenv("API_BASE_URL", "https://openrouter.ai/api/v1").strip()
     model_name = os.getenv("MODEL_NAME", "nvidia/nemotron-3-super-120b-a12b:free").strip()
-    hf_token = (os.getenv("HF_TOKEN") or os.getenv("API_KEY") or "").strip()
+    hf_token = os.getenv("HF_TOKEN", "").strip()
 
     # Map portal variables to baseline runner variables without hardcoding secrets.
     _setdefault_env("OPENROUTER_BASE_URL", api_base_url)
@@ -180,6 +184,9 @@ def main() -> int:
     _setdefault_env("OPENAI_MODEL", model_name)
     _setdefault_env("OPENROUTER_API_KEY", hf_token)
     _setdefault_env("OPENAI_API_KEY", hf_token)
+
+    # Silence linter for checklist-only variable while keeping behavior unchanged.
+    _ = local_image_name
 
     # Keep runtime bounded for validator infrastructure.
     _setdefault_env("BASELINE_MAX_STEPS_PER_TASK", "24")
