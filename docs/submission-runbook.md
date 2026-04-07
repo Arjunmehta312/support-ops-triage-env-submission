@@ -67,9 +67,9 @@ Submission is ready when all are true:
 
 ## Final Sync Snapshot (April 7, 2026)
 
-- origin/main: `6f0c561`
-- submission/main (subtree): `2ae8e68`
-- hfspace/main (subtree): `2ae8e68`
+- origin/main: `20d2d26`
+- submission/main (subtree): `b5177cd`
+- hfspace/main (subtree): `b5177cd`
 
 ## Notes
 

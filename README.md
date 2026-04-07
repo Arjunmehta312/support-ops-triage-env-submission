@@ -103,9 +103,9 @@ Final verified status:
 - Remote pre-submission validator returns `status: ok`.
 
 Final remote sync snapshot:
-- Main workspace repo (`origin/main`): `6f0c561`
-- Submission repo (`submission/main` subtree): `2ae8e68`
-- HF Space repo (`hfspace/main` subtree): `2ae8e68`
+- Main workspace repo (`origin/main`): `20d2d26`
+- Submission repo (`submission/main` subtree): `b5177cd`
+- HF Space repo (`hfspace/main` subtree): `b5177cd`
 
 Recommended final gate before portal submit:
 1. Run `python scripts/check_space_status.py --owner Arjunmehta312 --space support-ops-triage-env`.
