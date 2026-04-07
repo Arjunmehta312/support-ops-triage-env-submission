@@ -90,21 +90,28 @@ This is not a toy domain. It simulates realistic support workflows used by SaaS 
 - responding with policy-safe templates
 - resolving tickets and producing end-of-shift summaries
 
-## Submission Status (March 29, 2026)
+## Submission Status (April 7, 2026 - Final Sync)
 
-This environment is submission-ready and production-functional.
+This environment is submission-ready and currently live on Hugging Face Spaces.
 
-What is verified:
-- Hugging Face Space is deployed and serving the latest submission runtime.
+Final verified status:
+- Hugging Face Space is deployed and responding with healthy API status.
 - Web Playground route is available at `/web`.
-- `reset` and `step` operations return healthy responses.
-- The previous UI crash path (`'str' object has no attribute 'get'`) is resolved in live runtime behavior.
-- End-to-end remote validation passes using `scripts/pre_submission_validate.py`.
+- `reset`, `step`, and core task APIs are operational.
+- Structured inference stdout format is present (`[START]`, `[STEP]`, `[END]`) for all task runs.
+- Organizer-style validator (`scripts/validate-submission.sh`) passes all 3 checks.
+- Remote pre-submission validator returns `status: ok`.
+
+Final remote sync snapshot:
+- Main workspace repo (`origin/main`): `6f0c561`
+- Submission repo (`submission/main` subtree): `2ae8e68`
+- HF Space repo (`hfspace/main` subtree): `2ae8e68`
 
 Recommended final gate before portal submit:
 1. Run `python scripts/check_space_status.py --owner Arjunmehta312 --space support-ops-triage-env`.
 2. Confirm required checks are OK (`runtime_api`, `/health`, `/tasks`).
 3. Run `python scripts/pre_submission_validate.py` with `OPENENV_BASE_URL` set to the Space URL.
+4. Run `bash scripts/validate-submission.sh https://arjunmehta312-support-ops-triage-env.hf.space .`
 
 ## Why This Environment Matters
 
@@ -151,6 +158,9 @@ The submission supports the required inference environment variables:
 - `API_BASE_URL`
 - `MODEL_NAME`
 - `HF_TOKEN`
+
+Optional parity variable:
+- `LOCAL_IMAGE_NAME` (accepted as optional; not required for the in-process runtime path)
 
 `inference.py` maps these values to baseline runtime configuration and executes the benchmark with the OpenAI client path used in baseline inference.
 

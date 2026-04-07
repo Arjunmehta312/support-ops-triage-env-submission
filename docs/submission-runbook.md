@@ -36,6 +36,12 @@ OPENENV_BASE_URL=https://arjunmehta312-support-ops-triage-env.hf.space python sc
 python scripts/check_space_status.py --owner Arjunmehta312 --space support-ops-triage-env
 ```
 
+5. Run organizer-style one-shot validator:
+
+```bash
+bash scripts/validate-submission.sh https://arjunmehta312-support-ops-triage-env.hf.space .
+```
+
 ## UI Smoke Test
 
 Open:
@@ -55,8 +61,15 @@ Submission is ready when all are true:
 
 - `runtime_api`, `/health`, and `/tasks` checks are OK
 - Remote pre-submission validator returns `status: ok`
+- Organizer validator reports `All 3/3 checks passed`
 - `/web` route is reachable
 - `reset` and `step` return HTTP 200
+
+## Final Sync Snapshot (April 7, 2026)
+
+- origin/main: `6f0c561`
+- submission/main (subtree): `2ae8e68`
+- hfspace/main (subtree): `2ae8e68`
 
 ## Notes
 
